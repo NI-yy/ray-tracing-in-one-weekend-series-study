@@ -14,7 +14,8 @@ public:
 	double noise(const point3& p) const {
 		auto u = p.x() - std::floor(p.x());
 		auto v = p.y() - std::floor(p.y());
-		auto w = p.z() - std::floor(p.z());
+		auto w = p.z() - std::floor(p.z());
+
 		auto i = int(std::floor(p.x()));
 		auto j = int(std::floor(p.y()));
 		auto k = int(std::floor(p.z()));
@@ -40,7 +41,8 @@ public:
 			temp_p *= 2;
 		}
 		return std::fabs(accum);
-	}
+	}
+
 
 private:
 	static const int point_count = 256;
@@ -81,4 +83,4 @@ private:
 		return accum;
 	}
 };
-#endif
+#endif
