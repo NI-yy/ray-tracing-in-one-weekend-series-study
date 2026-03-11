@@ -2,6 +2,8 @@
 #define CAMERA_H
 
 #include "hittable.h"
+#include "hittable_list.h"
+#include "pdf.h"
 #include "material.h"
 
 class camera {
@@ -20,7 +22,7 @@ class camera {
 		double defocus_angle = 0; // Variation angle of rays through each pixel
 		double focus_dist = 10; // Distance from camera lookfrom point to plane of perfect focus
 
-		void render(const hittable& world) {
+		void render(const hittable& world, const hittable& lights = hittable_list()) {
 			initialize();
 
 			
@@ -36,7 +38,7 @@ class camera {
 					for (int s_j = 0; s_j < sqrt_spp; s_j++) {
 						for (int s_i = 0; s_i < sqrt_spp; s_i++) {
 							ray r = get_ray(i, j, s_i, s_j);
-							pixel_color += ray_color(r, max_depth, world);
+							pixel_color += ray_color(r, max_depth, world, lights);
 						}
 					}
 
@@ -137,7 +139,8 @@ class camera {
 		}
 
 
-		color ray_color(const ray& r, int depth, const hittable& world) const {
+		color ray_color(const ray& r, int depth, const hittable& world, const hittable& lights)
+			const {
 			// If we've exceeded the ray bounce limit, no more light is gathered.
 			if (depth <= 0)
 				return color(0, 0, 0);
@@ -147,30 +150,28 @@ class camera {
 			// If the ray hits nothing, return the background color.
 			if (!world.hit(r, interval(0.001, infinity), rec))
 				return background;
-			ray scattered;
-			color attenuation;
-			double pdf_value;
+
+			scatter_record srec;
 			color color_from_emission = rec.mat->emitted(r, rec, rec.u, rec.v, rec.p);
-			if (!rec.mat->scatter(r, rec, attenuation, scattered, pdf_value))
+
+			if (!rec.mat->scatter(r, rec, srec))
 				return color_from_emission;
 
-			auto on_light = point3(random_double(213, 343), 554, random_double(227, 332));
-			auto to_light = on_light - rec.p;
-			auto distance_squared = to_light.length_squared();
-			to_light = unit_vector(to_light);
-			if (dot(to_light, rec.normal) < 0)
-				return color_from_emission;
-			double light_area = (343 - 213) * (332 - 227);
-			auto light_cosine = std::fabs(to_light.y());
-			if (light_cosine < 0.000001)
-				return color_from_emission;
-			pdf_value = distance_squared / (light_cosine * light_area);
-			scattered = ray(rec.p, to_light, r.time());
+			if (srec.skip_pdf) {
+				return srec.attenuation * ray_color(srec.skip_pdf_ray, depth - 1, world, lights);
+			}
+
+			auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
+			mixture_pdf p(light_ptr, srec.pdf_ptr);
+
+			ray scattered = ray(rec.p, p.generate(), r.time());
+			auto pdf_value = p.value(scattered.direction());
+
 			double scattering_pdf = rec.mat->scattering_pdf(r, rec, scattered);
 
+			color sample_color = ray_color(scattered, depth - 1, world, lights);
 			color color_from_scatter =
-				(attenuation * scattering_pdf * ray_color(scattered, depth - 1, world)) / pdf_value;
-
+				(srec.attenuation * scattering_pdf * sample_color) / pdf_value;
 
 			return color_from_emission + color_from_scatter; // takeaway
 		}
