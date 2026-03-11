@@ -4,3 +4,4 @@ A physically based path tracer implemented in C++ from scratch. Based on Peter S
 This project is based on the book [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 
 ![Final Render](./image.png)
+![Final Render](./image_book3.png)
